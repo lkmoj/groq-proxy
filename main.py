@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify
-import requests
+import requests, json, traceback
 
 app = Flask(__name__)
 
@@ -14,10 +14,19 @@ def ping():
 @app.route('/ask', methods=['POST'])
 def ask():
     try:
-        data = request.get_json(force=True)
+        # Читаем raw body и парсим сами
+        raw = request.get_data(as_text=True)
+        try:
+            data = json.loads(raw)
+        except Exception as e:
+            return jsonify({'error': 'bad json: ' + str(e), 'raw': raw[:200]}), 400
+
         api_key = data.get('key', '')
         prompt  = data.get('prompt', '')
         system  = data.get('system', '')
+
+        if not api_key:
+            return jsonify({'error': 'no api key'}), 400
 
         resp = requests.post(
             'https://api.groq.com/openai/v1/chat/completions',
@@ -37,11 +46,15 @@ def ask():
             timeout=15
         )
 
-        answer = resp.json()['choices'][0]['message']['content']
+        result = resp.json()
+        if 'choices' not in result:
+            return jsonify({'error': str(result)}), 500
+
+        answer = result['choices'][0]['message']['content']
         return jsonify({'answer': answer})
 
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': traceback.format_exc()}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=10000)
