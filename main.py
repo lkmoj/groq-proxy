@@ -3,6 +3,9 @@ import requests, json, traceback
 
 app = Flask(__name__)
 
+OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
+DEFAULT_MODEL   = 'google/gemini-2.0-flash-exp:free'
+
 @app.route('/')
 def root():
     return 'OK'
@@ -14,30 +17,33 @@ def ping():
 @app.route('/ask', methods=['POST'])
 def ask():
     try:
-        # Читаем raw body и парсим сами
         raw = request.get_data(as_text=True)
         try:
             data = json.loads(raw)
         except Exception as e:
             return jsonify({'error': 'bad json: ' + str(e), 'raw': raw[:200]}), 400
 
-        api_key = data.get('key', '')
-        prompt  = data.get('prompt', '')
-        system  = data.get('system', '')
+        api_key    = data.get('key', '')
+        prompt     = data.get('prompt', '')
+        system     = data.get('system', '')
+        model      = data.get('model', DEFAULT_MODEL)
+        max_tokens = int(data.get('max_tokens', 20))
 
         if not api_key:
             return jsonify({'error': 'no api key'}), 400
 
         resp = requests.post(
-            'https://api.groq.com/openai/v1/chat/completions',
+            OPENROUTER_URL,
             headers={
                 'Authorization': 'Bearer ' + api_key,
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'HTTP-Referer': 'https://github.com/lkmoj/groq-proxy',
+                'X-Title': 'SAMP AI Bot'
             },
             json={
-                'model': 'llama-3.1-8b-instant',
-                'max_tokens': 60,
-                'temperature': 0.85,
+                'model': model,
+                'max_tokens': max_tokens,
+                'temperature': 0.7,
                 'messages': [
                     {'role': 'system', 'content': system},
                     {'role': 'user',   'content': prompt}
