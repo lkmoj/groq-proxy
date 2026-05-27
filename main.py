@@ -4,13 +4,13 @@ import requests, json, traceback
 app = Flask(__name__)
 
 OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
-DEFAULT_MODEL   = 'google/gemini-2.0-flash-exp:free'
+DEFAULT_MODEL   = 'deepseek/deepseek-v4-flash:free'
 
 @app.route('/')
 def root():
     return 'OK'
 
-@app.route('/ping')
+@app.route('/ping', methods=['GET', 'POST'])
 def ping():
     return 'pong'
 
@@ -18,6 +18,7 @@ def ping():
 def ask():
     try:
         raw = request.get_data(as_text=True)
+        print(f'[ask] raw body: {raw[:300]}', flush=True)
         try:
             data = json.loads(raw)
         except Exception as e:
@@ -28,6 +29,8 @@ def ask():
         system     = data.get('system', '')
         model      = data.get('model', DEFAULT_MODEL)
         max_tokens = int(data.get('max_tokens', 20))
+
+        print(f'[ask] model={model} key_len={len(api_key)} max_tokens={max_tokens}', flush=True)
 
         if not api_key:
             return jsonify({'error': 'no api key'}), 400
@@ -52,6 +55,8 @@ def ask():
             timeout=15
         )
 
+        print(f'[ask] openrouter status={resp.status_code} body={resp.text[:300]}', flush=True)
+
         result = resp.json()
         if 'choices' not in result:
             return jsonify({'error': str(result)}), 500
@@ -60,6 +65,7 @@ def ask():
         return jsonify({'answer': answer})
 
     except Exception as e:
+        print(f'[ask] exception: {traceback.format_exc()}', flush=True)
         return jsonify({'error': traceback.format_exc()}), 500
 
 if __name__ == '__main__':
